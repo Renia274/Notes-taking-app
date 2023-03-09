@@ -66,7 +66,7 @@ class CreateNoteActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_note)
 
-
+        // Get references to UI elements
         val imageBack = findViewById<ImageView>(com.example.myapplication.R.id.imageBack)
         val imageSave = findViewById<ImageView>(com.example.myapplication.R.id.imageSave)
 
@@ -88,9 +88,11 @@ class CreateNoteActivity : AppCompatActivity() {
             "EEEE, dd MMMM yyyy HH:mm a", Locale.getDefault()
         ).format(Date().time)
 
+        // Set onClickListener for imageBack and imageSave ImageView
         imageBack.setOnClickListener { onBackPressed() }
         imageSave.setOnClickListener { saveNote() }
 
+        // Set default color for note
         selectedNoteColor="#333333"
 
         initMiscellaneous()
@@ -101,8 +103,10 @@ class CreateNoteActivity : AppCompatActivity() {
             layoutWebURL?.visibility = View.GONE
         }
 
+        // Get note ID from intent extra
         val noteId = intent.getIntExtra("note_id", -1)
 
+        // If noteId is not -1, then an existing note is being edited
         if (noteId != -1) {
             GlobalScope.launch(Dispatchers.IO) {
                 alreadyAvailableNote = NotesDatabase.getNotesDatabase(this@CreateNoteActivity)
@@ -136,19 +140,25 @@ class CreateNoteActivity : AppCompatActivity() {
         }
     }
 
+    // This function saves the note created by the user
     private fun saveNote() {
+
+        // Get the title, subtitle and text of the note
         val noteTitle = inputNoteTitle?.text.toString().trim()
         val noteSubtitle = inputNoteSubtitle?.text.toString().trim()
         val noteText = inputNoteText?.text.toString().trim()
 
+        // Check if the note title is empty
         if (noteTitle.isEmpty()) {
             Toast.makeText(this, "Note title can't be empty!", Toast.LENGTH_SHORT).show()
             return
+            // Check if both the note subtitle and text are empty
         } else if (noteSubtitle.isEmpty() && noteText.isEmpty()) {
             Toast.makeText(this, "Note can't be empty!", Toast.LENGTH_SHORT).show()
             return
         }
 
+        // Create a new note object with the title, subtitle, text, date and color of the note
         val note = Note().apply {
             title = noteTitle
             subtitle = noteSubtitle
@@ -159,22 +169,26 @@ class CreateNoteActivity : AppCompatActivity() {
 
         }
 
+        // If a web URL was added, set it as the note's web link
         if (layoutWebURL?.visibility == VISIBLE) {
             note.webLink = textWebURL?.text.toString()
         }
 
+        // If the note being edited already exists, set its ID to the new note's ID
         alreadyAvailableNote?.let { note.id = it.id }
 
+        //// Creation of  an AsyncTask to insert the new note into the database
         class SaveNoteTask : AsyncTask<Void?, Void?, Void?>() {
-            @Deprecated("Deprecated in Java")
+
             override fun doInBackground(vararg p0: Void?): Void? {
                 NotesDatabase.getNotesDatabase(applicationContext).noteDao().insertNote(note)
                 return null
             }
 
-            @Deprecated("Deprecated in Java")
+
             override fun onPostExecute(aVoid: Void?) {
                 super.onPostExecute(aVoid)
+                // Set the result of the activity to RESULT_OK and finish it
                 val intent = Intent()
                 setResult(RESULT_OK, intent)
                 finish()
@@ -185,7 +199,7 @@ class CreateNoteActivity : AppCompatActivity() {
 
     }
 
-    @SuppressLint("CutPasteId")
+
     private fun initMiscellaneous() {
         val layoutMiscellaneous =
             findViewById<LinearLayout>(com.example.myapplication.R.id.layoutMiscellaneous)
@@ -198,6 +212,7 @@ class CreateNoteActivity : AppCompatActivity() {
                     bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED)
                 }
             }
+        // Set up image views and their corresponding click listeners to select note color
         val imageColor1: ImageView =
             layoutMiscellaneous.findViewById(com.example.myapplication.R.id.imageColor1)
         val imageColor2: ImageView =
@@ -262,6 +277,7 @@ class CreateNoteActivity : AppCompatActivity() {
 
         val addImage: LinearLayout = layoutMiscellaneous.findViewById(R.id.layoutAddImage)
 
+        // Set up click listener for adding image to note
         addImage.setOnClickListener {
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
             if (ContextCompat.checkSelfPermission(
@@ -297,6 +313,7 @@ class CreateNoteActivity : AppCompatActivity() {
         gradientDrawable.setColor(Color.parseColor(selectedNoteColor))
     }
 
+
     private fun selectImage() {
         startActivityForResult(
             createGetContentIntent(
@@ -307,7 +324,7 @@ class CreateNoteActivity : AppCompatActivity() {
             REQUEST_CODE_SELECT_IMAGE
         )
     }
-
+    //loads and save image to cache of the application
     fun loadAndSaveImageToCache(context: Context, uri: Uri?): String? {
         val bitmap = BitmapFactory.decodeFile(getRealPathFromURI(context, uri))
         val fileName = "image_${System.currentTimeMillis()}.jpg"
@@ -398,27 +415,38 @@ class CreateNoteActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+
+        // Get references to views
         val removeImage = findViewById<ImageView>(R.id.imageRemoveImage)
         val imageNote: AppCompatImageView = findViewById(R.id.imageNote)
 
+        // Check if the request code and result code indicate that an image was selected
         if (requestCode == REQUEST_CODE_SELECT_IMAGE && resultCode == RESULT_OK) {
             if (data != null) {
+                // Get the Uri of the selected image
                 val selectedImageUri = data.data
                 if (selectedImageUri != null) {
                     try {
+                        // Load the image from the Uri and save it to cache
                         val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
+                        // Create a Bitmap from the saved image
                         val bitmap = BitmapFactory.decodeFile(imagePath)
+                        // Set the Bitmap as the imageNote ImageView's source
                         imageNote.setImageBitmap(bitmap)
+                        // Make the imageNote and removeImage ImageViews visible
                         imageNote.visibility = VISIBLE
                         removeImage.visibility = VISIBLE
+                        // Save the path of the selected image
                         selectedImagePath = imagePath
                     } catch (e: Exception) {
+                        // Display an error message if the image couldn't be loaded or saved
                         Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         }
     }
+
 
 
 

@@ -40,16 +40,17 @@ class MainActivity : AppCompatActivity(),NotesListener {
 
         notesAdapter.setListener(this)
 
-
+        // Set up the RecyclerView with the NotesAdapter and a LinearLayoutManager
         notesRv = findViewById(R.id.notesRecyclerView)
         notesRv.apply {
             adapter = notesAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)
         }
 
+        // Get the initial set of notes and display them in the RecyclerView
         getNotes()
 
-
+       // Set up the search
         val inputSearch = findViewById<EditText>(R.id.inputSearch)
         inputSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
@@ -69,6 +70,7 @@ class MainActivity : AppCompatActivity(),NotesListener {
         notesAdapter.notifyDataSetChanged()
     }
 
+    // Callback function for when a note is clicked in the RecyclerView
     override fun onNoteClicked(note: Note) {
         val intent = Intent(this, CreateNoteActivity::class.java)
         intent.putExtra("note_id", note.id)
@@ -89,7 +91,7 @@ class MainActivity : AppCompatActivity(),NotesListener {
         }
     }
 
-
+    // Get the list of notes from the database
     private fun getNotes() {
         class GetNotesTask : AsyncTask<Void?, Void?, List<Note?>?>() {
             override fun doInBackground(vararg params: Void?): List<Note?>? {

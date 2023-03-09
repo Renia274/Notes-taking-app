@@ -19,15 +19,22 @@ import com.example.myapplication.listeners.NotesListener
 import java.util.*
 
 
-@Suppress("UNUSED_EXPRESSION")
+
 class NotesAdapter : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
 
+    // List of notes to be displayed
     var notes: List<Note> = listOf()
+    // Listener for handling note click events
     var notesListener: NotesListener? = null
+    // Timer for implementing search functionality
     var timer: Timer? = null
+    // List of notes as the source of truth
     var notesSource: List<Note> = listOf()
 
+    /**
 
+    Creates a new NoteViewHolder for displaying note items in the RecyclerView
+     */
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
         return NoteViewHolder(
             LayoutInflater.from(parent.context)
@@ -35,20 +42,38 @@ class NotesAdapter : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
         )
     }
 
+    /**
+
+    Binds a NoteViewHolder with a Note at a given position in the RecyclerView
+     */
     override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
         holder.bind(notes[position])
-
     }
 
+    /**
+
+    Sets the listener for handling note click events
+     */
     fun setListener(listener: NotesListener) {
         this.notesListener = listener
     }
 
+    /**
 
+    Returns the number of notes in the RecyclerView
+     */
     override fun getItemCount() = notes.size
 
+    /**
+
+    Returns the view type of a note item in the RecyclerView
+     */
     override fun getItemViewType(position: Int) = NOTE_VIEW_TYPE
 
+    /**
+
+    ViewHolder class for displaying Note items in the RecyclerView
+     */
     inner class NoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val title: TextView = itemView.findViewById(R.id.textTitle)
         private val subtitle: TextView = itemView.findViewById(R.id.textSubtitle)
@@ -56,21 +81,26 @@ class NotesAdapter : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
         val layoutNote: LinearLayout = itemView.findViewById(R.id.layoutNote)
         private val imageNote: ImageView = itemView.findViewById(R.id.imageNote)
 
+        /**
 
+        Binds a Note to this ViewHolder
+         */
         fun bind(note: Note) {
             title.text = note.title
             subtitle.text = note.subtitle
             dateTime.text = note.dateTime
 
+            // Sets up a click listener for the note item
             itemView.setOnClickListener { notesListener?.onNoteClicked(note) }
 
-
+            // Hides the subtitle TextView if it's empty
             if (note.subtitle?.isEmpty() == true) {
                 subtitle.visibility = View.GONE
             } else {
                 subtitle.visibility = View.VISIBLE
             }
 
+            // Sets the background color of the note item based on its color attribute
             val gradientDrawable = layoutNote.background as GradientDrawable
             if (note.color != null) {
                 gradientDrawable.setColor(Color.parseColor(note.color))
@@ -78,6 +108,7 @@ class NotesAdapter : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
                 gradientDrawable.setColor(Color.parseColor("#333333"))
             }
 
+            // Loads the note's image using Glide and displays it if it exists
             note.imagePath?.let {
                 Glide.with(itemView.context)
                     .load(it)
@@ -86,13 +117,13 @@ class NotesAdapter : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
             } ?: run {
                 imageNote.visibility = View.GONE
             }
-
-
         }
-
-
     }
 
+    /**
+
+    Filters the notes based on a search keyword and updates the RecyclerView
+     */
 
     fun searchNotes(searchKeyword: String) {
         timer = Timer()
