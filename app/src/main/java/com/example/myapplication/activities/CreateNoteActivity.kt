@@ -146,6 +146,22 @@ class CreateNoteActivity : AppCompatActivity() {
             }
         }
 
+
+        // Check if the permission is already granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+            != PERMISSION_GRANTED
+        ) {
+            // Permission is not granted, request it
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                requestCodeStoragePermission
+            )
+        } else {
+            // Permission is already granted
+            selectImage()
+        }
+
         selectImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val data = result.data
@@ -187,6 +203,12 @@ class CreateNoteActivity : AppCompatActivity() {
             // Call the callback to handle the back button press
             callback.handleOnBackPressed()
         }
+
+
+
+
+
+
 
         // Initialize the openAppSettingsLauncher
         openAppSettingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
