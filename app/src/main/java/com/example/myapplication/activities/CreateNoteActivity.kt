@@ -160,9 +160,7 @@ class CreateNoteActivity : AppCompatActivity() {
                 }
             }
 
-        // Add your UI setup and event handling code here
-
-        // Example: Launch the photo picker when a button is clicked
+        /
         findViewById<View>(R.id.layoutAddImage).setOnClickListener {
             // Launch the media picker
             pickMultipleMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
