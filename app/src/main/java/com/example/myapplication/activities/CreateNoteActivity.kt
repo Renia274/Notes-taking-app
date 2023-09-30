@@ -2,7 +2,7 @@ package com.example.myapplication.activities
 
 
 import android.Manifest
-import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -13,39 +13,49 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
-import android.os.AsyncTask
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
-import android.widget.*
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.myapplication.R
 import com.example.myapplication.database.NotesDatabase
 import com.example.myapplication.entities.Note
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
+
+
+
 
 
 class CreateNoteActivity : AppCompatActivity() {
 
     private var inputNoteTitle: EditText? = null
-    private var REQUEST_CODE_TAKE_IMAGE = 3
+    private var requestCodeTakeImage = 3
     private var inputNoteSubtitle: EditText? = null
     private var inputNoteText: EditText? = null
     private var textDateTime: TextView? = null
@@ -54,12 +64,17 @@ class CreateNoteActivity : AppCompatActivity() {
     private var textWebURL: TextView? = null
     private var layoutWebURL: LinearLayout? = null
     private var selectedNoteColor: String? = null
-    private val REQUEST_CODE_STORAGE_PERMISSION = 1
-    private val REQUEST_CODE_SELECT_IMAGE = 2
+    private val requestCodeStoragePermission = 1
+    private val requestCodeSelectImage = 2
     private var dialogAddURL: AlertDialog? = null
     private var dialogDeleteNote: AlertDialog? = null
     private var alreadyAvailableNote: Note? = null
     private var selectedImagePath: String? = null
+    private lateinit var selectImageLauncher: ActivityResultLauncher<Intent>
+    private var removeImage: ImageView? = null
+    private lateinit var openAppSettingsLauncher: ActivityResultLauncher<Intent>
+
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,9 +82,8 @@ class CreateNoteActivity : AppCompatActivity() {
         setContentView(R.layout.activity_create_note)
 
         // Get references to UI elements
-        val imageBack = findViewById<ImageView>(com.example.myapplication.R.id.imageBack)
-        val imageSave = findViewById<ImageView>(com.example.myapplication.R.id.imageSave)
-
+        val imageBack = findViewById<ImageView>(R.id.imageBack)
+        val imageSave = findViewById<ImageView>(R.id.imageSave)
 
         inputNoteTitle = findViewById(R.id.inputNoteTitle)
         inputNoteSubtitle = findViewById(R.id.inputNoteSubtitle)
@@ -81,34 +95,26 @@ class CreateNoteActivity : AppCompatActivity() {
         textDateTime = findViewById(R.id.textDateTime)
         viewSubtitleIndicator = findViewById(R.id.viewSubtitleIndicator)
 
-
-
-
         textDateTime?.text = SimpleDateFormat(
             "EEEE, dd MMMM yyyy HH:mm a", Locale.getDefault()
         ).format(Date().time)
 
-        // Set onClickListener for imageBack and imageSave ImageView
-        imageBack.setOnClickListener { onBackPressed() }
-        imageSave.setOnClickListener { saveNote() }
-
         // Set default color for note
-        selectedNoteColor="#333333"
+        selectedNoteColor = "#333333"
 
         initMiscellaneous()
         setSubtitleIndicatorColor()
 
         findViewById<View>(R.id.imageRemoveWebURL).setOnClickListener {
             textWebURL?.text = null
-            layoutWebURL?.visibility = View.GONE
+            layoutWebURL?.visibility = GONE
         }
 
-        // Get note ID from intent extra
         val noteId = intent.getIntExtra("note_id", -1)
 
         // If noteId is not -1, then an existing note is being edited
         if (noteId != -1) {
-            GlobalScope.launch(Dispatchers.IO) {
+            lifecycleScope.launch(Dispatchers.IO) {
                 alreadyAvailableNote = NotesDatabase.getNotesDatabase(this@CreateNoteActivity)
                     .noteDao()
                     .getNoteById(noteId)
@@ -123,6 +129,7 @@ class CreateNoteActivity : AppCompatActivity() {
                         selectedImagePath = alreadyAvailableNote?.imagePath
                         imageNote?.setImageBitmap(BitmapFactory.decodeFile(selectedImagePath))
                         imageNote?.visibility = VISIBLE
+                        removeImage?.visibility = VISIBLE
                     }
 
                     // Load web URL if not null
@@ -138,12 +145,85 @@ class CreateNoteActivity : AppCompatActivity() {
                 }
             }
         }
+
+        selectImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val data = result.data
+                if (data != null) {
+                    // Handle the selected image here
+                    val selectedImageUri = data.data
+                    if (selectedImageUri != null) {
+                        try {
+                            val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
+                            val bitmap = BitmapFactory.decodeFile(imagePath)
+                            imageNote?.setImageBitmap(bitmap)
+                            imageNote?.visibility = VISIBLE
+                            removeImage?.visibility = VISIBLE
+                            selectedImagePath = imagePath
+                        } catch (e: Exception) {
+                            Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
+
+        // Register the onBackPressedCallback here
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Handle the back button press here
+                saveNote()
+            }
+        }
+
+        // Register the callback
+        onBackPressedDispatcher.addCallback(this, callback)
+
+        // Set onClickListener for imageSave ImageView
+        imageSave.setOnClickListener { saveNote() }
+
+        // Set onClickListener for imageBack ImageView
+        imageBack.setOnClickListener {
+            // Call the callback to handle the back button press
+            callback.handleOnBackPressed()
+        }
+
+        // Initialize the openAppSettingsLauncher
+        openAppSettingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                // Check if the user granted the necessary permission after opening settings
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.READ_EXTERNAL_STORAGE
+                    ) == PERMISSION_GRANTED
+                ) {
+                    // Permission granted, proceed with image selection
+                    selectImage()
+                } else {
+                    Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
+
+
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        val uri = Uri.fromParts("package", packageName, null)
+        intent.data = uri
+        openAppSettingsLauncher.launch(intent)
+    }
+
+
+
+
+
+
 
     // This function saves the note created by the user
     private fun saveNote() {
-
-        // Get the title, subtitle and text of the note
+        // Get the title, subtitle, and text of the note
         val noteTitle = inputNoteTitle?.text.toString().trim()
         val noteSubtitle = inputNoteSubtitle?.text.toString().trim()
         val noteText = inputNoteText?.text.toString().trim()
@@ -152,13 +232,12 @@ class CreateNoteActivity : AppCompatActivity() {
         if (noteTitle.isEmpty()) {
             Toast.makeText(this, "Note title can't be empty!", Toast.LENGTH_SHORT).show()
             return
-            // Check if both the note subtitle and text are empty
         } else if (noteSubtitle.isEmpty() && noteText.isEmpty()) {
             Toast.makeText(this, "Note can't be empty!", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Create a new note object with the title, subtitle, text, date and color of the note
+        // Create a new note object with the title, subtitle, text, date, and color of the note
         val note = Note().apply {
             title = noteTitle
             subtitle = noteSubtitle
@@ -166,7 +245,6 @@ class CreateNoteActivity : AppCompatActivity() {
             dateTime = textDateTime?.text?.toString()
             this.color = selectedNoteColor
             this.imagePath = selectedImagePath
-
         }
 
         // If a web URL was added, set it as the note's web link
@@ -177,27 +255,16 @@ class CreateNoteActivity : AppCompatActivity() {
         // If the note being edited already exists, set its ID to the new note's ID
         alreadyAvailableNote?.let { note.id = it.id }
 
-        //// Creation of  an AsyncTask to insert the new note into the database
-        class SaveNoteTask : AsyncTask<Void?, Void?, Void?>() {
-
-            override fun doInBackground(vararg p0: Void?): Void? {
-                NotesDatabase.getNotesDatabase(applicationContext).noteDao().insertNote(note)
-                return null
-            }
-
-
-            override fun onPostExecute(aVoid: Void?) {
-                super.onPostExecute(aVoid)
-                // Set the result of the activity to RESULT_OK and finish it
+        lifecycleScope.launch(Dispatchers.IO) {
+            NotesDatabase.getNotesDatabase(applicationContext).noteDao().insertNote(note)
+            withContext(Dispatchers.Main) {
                 val intent = Intent()
                 setResult(RESULT_OK, intent)
                 finish()
             }
         }
-
-        SaveNoteTask().execute()
-
     }
+
 
 
     private fun initMiscellaneous() {
@@ -288,7 +355,7 @@ class CreateNoteActivity : AppCompatActivity() {
                 ActivityCompat.requestPermissions(
                     this@CreateNoteActivity,
                     arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                    REQUEST_CODE_STORAGE_PERMISSION
+                    requestCodeStoragePermission
                 )
             } else {
                 selectImage()
@@ -315,17 +382,31 @@ class CreateNoteActivity : AppCompatActivity() {
 
 
     private fun selectImage() {
-        startActivityForResult(
-            createGetContentIntent(
+        if (ContextCompat.checkSelfPermission(
+                applicationContext,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) != PERMISSION_GRANTED
+        ) {
+            // Permission is not granted, request it.
+            ActivityCompat.requestPermissions(
+                this@CreateNoteActivity,
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                requestCodeStoragePermission
+            )
+        } else {
+            // Permission is already granted, proceed with image selection.
+            val intent = createGetContentIntent(
                 this,
                 "image/*",
                 title = "Select Image"
-            ),
-            REQUEST_CODE_SELECT_IMAGE
-        )
+            )
+            selectImageLauncher.launch(intent)
+        }
     }
+
+
     //loads and save image to cache of the application
-    fun loadAndSaveImageToCache(context: Context, uri: Uri?): String? {
+    private fun loadAndSaveImageToCache(context: Context, uri: Uri?): String? {
         val bitmap = BitmapFactory.decodeFile(getRealPathFromURI(context, uri))
         val fileName = "image_${System.currentTimeMillis()}.jpg"
         val file = File(context.cacheDir, fileName)
@@ -337,7 +418,7 @@ class CreateNoteActivity : AppCompatActivity() {
     }
 
 
-    fun getRealPathFromURI(context: Context, uri: Uri?): String? {
+    private fun getRealPathFromURI(context: Context, uri: Uri?): String? {
         var filePath = ""
         val wholeID = DocumentsContract.getDocumentId(uri)
 
@@ -358,7 +439,7 @@ class CreateNoteActivity : AppCompatActivity() {
         return filePath
     }
 
-    fun createGetContentIntent(
+    private fun createGetContentIntent(
         context: Context,
         type: String = "*/*",
         extraTypes: Array<String>? = null,
@@ -399,54 +480,28 @@ class CreateNoteActivity : AppCompatActivity() {
         return chooserIntent
     }
 
+
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<String?>,
-        grantResults: IntArray,
+        permissions: Array<String>,
+        grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode == REQUEST_CODE_STORAGE_PERMISSION && grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
-            selectImage()
-        } else {
-            Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show()
-        }
-    }
+        if (requestCode == requestCodeStoragePermission) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
+                // Permission granted, proceed with image selection
+                selectImage()
+            } else {
+                // Permission denied
+                Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show()
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        // Get references to views
-        val removeImage = findViewById<ImageView>(R.id.imageRemoveImage)
-        val imageNote: AppCompatImageView = findViewById(R.id.imageNote)
-
-        // Check if the request code and result code indicate that an image was selected
-        if (requestCode == REQUEST_CODE_SELECT_IMAGE && resultCode == RESULT_OK) {
-            if (data != null) {
-                // Get the Uri of the selected image
-                val selectedImageUri = data.data
-                if (selectedImageUri != null) {
-                    try {
-                        // Load the image from the Uri and save it to cache
-                        val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
-                        // Create a Bitmap from the saved image
-                        val bitmap = BitmapFactory.decodeFile(imagePath)
-                        // Set the Bitmap as the imageNote ImageView's source
-                        imageNote.setImageBitmap(bitmap)
-                        // Make the imageNote and removeImage ImageViews visible
-                        imageNote.visibility = VISIBLE
-                        removeImage.visibility = VISIBLE
-                        // Save the path of the selected image
-                        selectedImagePath = imagePath
-                    } catch (e: Exception) {
-                        // Display an error message if the image couldn't be loaded or saved
-                        Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
-                    }
-                }
+                // Open app settings to allow the user to grant the permission manually
+                openAppSettings()
             }
         }
     }
-
 
 
 
@@ -493,24 +548,20 @@ class CreateNoteActivity : AppCompatActivity() {
                 dialogDeleteNote?.window?.setBackgroundDrawable(ColorDrawable(0))
             }
             view.findViewById<View>(R.id.textDeleteNote).setOnClickListener {
-                @SuppressLint("StaticFieldLeak")
-                class DeleteNoteTask : AsyncTask<Void?, Void?, Void?>() {
-                    override fun doInBackground(vararg params: Void?): Void? {
-                        NotesDatabase.getNotesDatabase(applicationContext).noteDao()
-                            .deleteNote(alreadyAvailableNote)
-                        return null
-                    }
+                lifecycleScope.launch(Dispatchers.IO) {
+                    // Perform database deletion operation in the background
+                    NotesDatabase.getNotesDatabase(applicationContext).noteDao()
+                        .deleteNote(alreadyAvailableNote)
 
-                    override fun onPostExecute(aVoid: Void?) {
-                        super.onPostExecute(aVoid)
+                    // Notify the UI thread that the note is deleted
+                    withContext(Dispatchers.Main) {
                         val intent = Intent()
                         intent.putExtra("isNoteDeleted", true)
-                        setResult(RESULT_OK, intent)
+                        setResult(Activity.RESULT_OK, intent)
                         dialogDeleteNote?.dismiss()
                         finish()
                     }
                 }
-                DeleteNoteTask().execute()
             }
         }
         dialogDeleteNote?.show()

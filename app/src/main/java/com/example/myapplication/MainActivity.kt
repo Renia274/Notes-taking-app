@@ -1,14 +1,15 @@
 package com.example.myapplication
 
 import android.content.Intent
-import android.os.AsyncTask
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log.*
 import android.widget.EditText
 import android.widget.ImageView
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.activities.CreateNoteActivity
@@ -16,14 +17,19 @@ import com.example.myapplication.adapters.NotesAdapter
 import com.example.myapplication.database.NotesDatabase
 import com.example.myapplication.entities.Note
 import com.example.myapplication.listeners.NotesListener
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+class MainActivity : AppCompatActivity(), NotesListener {
 
-class MainActivity : AppCompatActivity(),NotesListener {
-
-    val addNote = 1
+    private val addNote = 1
 
     lateinit var notesRv: RecyclerView
-    var notesAdapter: NotesAdapter = NotesAdapter()
+    private val notesAdapter: NotesAdapter = NotesAdapter()
+
+    // Define an ActivityResultLauncher to start CreateNoteActivity
+    private lateinit var startCreateNoteActivity: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,11 +37,18 @@ class MainActivity : AppCompatActivity(),NotesListener {
 
         val imageAddNoteMain = findViewById<ImageView>(R.id.imageAddNoteMain)
 
+        // Initialize the ActivityResultLauncher
+        startCreateNoteActivity = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == RESULT_OK) {
+                getNotes()
+            }
+        }
+
         imageAddNoteMain.setOnClickListener {
-            startActivityForResult(
-                Intent(applicationContext, CreateNoteActivity::class.java),
-                addNote
-            )
+            val intent = Intent(applicationContext, CreateNoteActivity::class.java)
+            startCreateNoteActivity.launch(intent)
         }
 
         notesAdapter.setListener(this)
@@ -50,10 +63,11 @@ class MainActivity : AppCompatActivity(),NotesListener {
         // Get the initial set of notes and display them in the RecyclerView
         getNotes()
 
-       // Set up the search
+        // Set up the search
         val inputSearch = findViewById<EditText>(R.id.inputSearch)
         inputSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
+
             override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
                 notesAdapter.cancelTimer()
             }
@@ -77,33 +91,14 @@ class MainActivity : AppCompatActivity(),NotesListener {
         startActivity(intent)
     }
 
-
-
-
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        when {
-            requestCode == addNote && resultCode == RESULT_OK -> {
-                getNotes()
-            }
-            else -> {}
-        }
-    }
-
     // Get the list of notes from the database
     private fun getNotes() {
-        class GetNotesTask : AsyncTask<Void?, Void?, List<Note?>?>() {
-            override fun doInBackground(vararg params: Void?): List<Note?>? {
-                return NotesDatabase.getNotesDatabase(applicationContext).noteDao().getAllNotes()
+        // Use the lifecycleScope provided by the AppCompatActivity
+        lifecycleScope.launch {
+            val notes = withContext(Dispatchers.IO) {
+                NotesDatabase.getNotesDatabase(applicationContext).noteDao().getAllNotes()
             }
-
-            override fun onPostExecute(notes: List<Note?>?) {
-                super.onPostExecute(notes)
-                updateData(notes?.filterNotNull() ?: listOf())
-            }
+            notes?.let { updateData(it.filterNotNull()) }
         }
-
-        GetNotesTask().execute()
     }
 }
