@@ -5,6 +5,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.database.Cursor
 import android.graphics.Bitmap
@@ -13,7 +14,9 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.Settings
@@ -147,42 +150,35 @@ class CreateNoteActivity : AppCompatActivity() {
         }
 
 
-        // Check if the permission is already granted
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-            != PERMISSION_GRANTED
-        ) {
-            // Permission is not granted, request it
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                requestCodeStoragePermission
-            )
-        } else {
-            // Permission is already granted
-            selectImage()
-        }
 
-        selectImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val data = result.data
-                if (data != null) {
-                    // Handle the selected image here
-                    val selectedImageUri = data.data
-                    if (selectedImageUri != null) {
-                        try {
-                            val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
-                            val bitmap = BitmapFactory.decodeFile(imagePath)
-                            imageNote?.setImageBitmap(bitmap)
-                            imageNote?.visibility = VISIBLE
-                            removeImage?.visibility = VISIBLE
-                            selectedImagePath = imagePath
-                        } catch (e: Exception) {
-                            Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+
+        // Initialize selectImageLauncher
+        selectImageLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val data = result.data
+                    if (data != null) {
+                        // Handle the selected image here
+                        val selectedImageUri = data.data
+                        if (selectedImageUri != null) {
+                            try {
+                                val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
+                                val bitmap = BitmapFactory.decodeFile(imagePath)
+                                imageNote?.setImageBitmap(bitmap)
+                                imageNote?.visibility = VISIBLE
+                                removeImage?.visibility = VISIBLE
+                                selectedImagePath = imagePath
+                            } catch (e: Exception) {
+                                Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
+                } else if (result.resultCode == Activity.RESULT_CANCELED) {
+                    // Handle image selection cancellation here
+                    Toast.makeText(this, "Image selection cancelled", Toast.LENGTH_SHORT).show()
                 }
             }
-        }
+
 
         // Register the onBackPressedCallback here
         val callback = object : OnBackPressedCallback(true) {
@@ -207,39 +203,67 @@ class CreateNoteActivity : AppCompatActivity() {
 
 
 
+        selectImageLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val data = result.data
+                    if (data != null) {
+                        // Handle the selected image here
+                        val selectedImageUri = data.data
+                        if (selectedImageUri != null) {
+                            try {
+                                val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
+                                val bitmap = BitmapFactory.decodeFile(imagePath)
+                                imageNote?.setImageBitmap(bitmap)
+                                imageNote?.visibility = VISIBLE
+                                removeImage?.visibility = VISIBLE
+                                selectedImagePath = imagePath
+                            } catch (e: Exception) {
+                                Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } else if (result.resultCode == Activity.RESULT_CANCELED) {
+                    // Handle image selection cancellation here
+                    Toast.makeText(this, "Image selection cancelled", Toast.LENGTH_SHORT).show()
+                }
+            }
 
-
-
-        // Initialize the openAppSettingsLauncher
-        openAppSettingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                // Check if the user granted the necessary permission after opening settings
+        openAppSettingsLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
+                // Check if the user granted permissions from app settings
                 if (ContextCompat.checkSelfPermission(
-                        this,
+                        applicationContext,
                         Manifest.permission.READ_EXTERNAL_STORAGE
                     ) == PERMISSION_GRANTED
                 ) {
-                    // Permission granted, proceed with image selection
-                    selectImage()
+                    // Permissions were granted, proceed with image selection
+                    val intent = createGetContentIntent(
+                        this,
+                        "image/*",
+                        title = "Select Image"
+                    )
+                    selectImageLauncher.launch(intent)
                 } else {
-                    Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show()
+                    // Permissions were not granted
+                    Toast.makeText(this, "Storage Permission Denied", Toast.LENGTH_SHORT).show()
                 }
             }
+
+
+    }
+
+
+    // Function to request storage permission
+    // Function to check and request permission.
+    private fun checkPermission(permission: String, requestCode: Int) {
+        if (ContextCompat.checkSelfPermission(this@CreateNoteActivity, permission) == PackageManager.PERMISSION_DENIED) {
+            // Requesting the permission
+            ActivityCompat.requestPermissions(this@CreateNoteActivity, arrayOf(permission), requestCode)
+        } else {
+            Toast.makeText(this@CreateNoteActivity, "Permission already granted", Toast.LENGTH_SHORT).show()
         }
     }
-
-
-
-    private fun openAppSettings() {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        val uri = Uri.fromParts("package", packageName, null)
-        intent.data = uri
-        openAppSettingsLauncher.launch(intent)
-    }
-
-
-
-
 
 
 
@@ -402,29 +426,57 @@ class CreateNoteActivity : AppCompatActivity() {
         gradientDrawable.setColor(Color.parseColor(selectedNoteColor))
     }
 
+    private fun getOpenAppSettingsIntent(): Intent {
+        val intent = Intent()
+        intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+        intent.addCategory(Intent.CATEGORY_DEFAULT)
+        intent.data = Uri.parse("package:$packageName")
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+        intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+        return intent
+    }
 
+
+
+
+    // Check if you have permission before selecting an image
     private fun selectImage() {
-        if (ContextCompat.checkSelfPermission(
-                applicationContext,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) != PERMISSION_GRANTED
-        ) {
-            // Permission is not granted, request it.
-            ActivityCompat.requestPermissions(
-                this@CreateNoteActivity,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                requestCodeStoragePermission
-            )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val manageExternalStoragePermission = Manifest.permission.MANAGE_EXTERNAL_STORAGE
+            if (Environment.isExternalStorageManager()) {
+                // Permission is granted, you can proceed with image selection.
+                val intent = createGetContentIntent(this, "image/*", title = "Select Image")
+                selectImageLauncher.launch(intent)
+            } else {
+                // Request the MANAGE_EXTERNAL_STORAGE permission using ActivityResultLauncher
+                openAppSettingsLauncher.launch(getOpenAppSettingsIntent())
+            }
         } else {
-            // Permission is already granted, proceed with image selection.
-            val intent = createGetContentIntent(
-                this,
-                "image/*",
-                title = "Select Image"
-            )
-            selectImageLauncher.launch(intent)
+            // For versions before Android 11, request READ_EXTERNAL_STORAGE permission
+            val permission = Manifest.permission.READ_EXTERNAL_STORAGE
+            if (ContextCompat.checkSelfPermission(
+                    applicationContext,
+                    permission
+                ) == PERMISSION_GRANTED
+            ) {
+                // Permission is already granted, proceed with image selection.
+                val intent = createGetContentIntent(this, "image/*", title = "Select Image")
+                selectImageLauncher.launch(intent)
+            } else {
+                // Permission is not granted, request it.
+                ActivityCompat.requestPermissions(
+                    this@CreateNoteActivity,
+                    arrayOf(permission),
+                    requestCodeStoragePermission
+                )
+            }
         }
     }
+
+
+
+
 
 
     //loads and save image to cache of the application
@@ -504,6 +556,7 @@ class CreateNoteActivity : AppCompatActivity() {
 
 
 
+    // Handle the permission result
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -513,14 +566,15 @@ class CreateNoteActivity : AppCompatActivity() {
 
         if (requestCode == requestCodeStoragePermission) {
             if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
-                // Permission granted, proceed with image selection
+                // Storage permission granted, proceed with image selection.
                 selectImage()
             } else {
-                // Permission denied
-                Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show()
-
-                // Open app settings to allow the user to grant the permission manually
-                openAppSettings()
+                // Storage permission denied, show a message or take appropriate action.
+                Toast.makeText(
+                    this@CreateNoteActivity,
+                    "Storage Permission Denied",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
@@ -528,7 +582,12 @@ class CreateNoteActivity : AppCompatActivity() {
 
 
 
-    private fun showAddURLDialog() {
+
+
+
+
+
+private fun showAddURLDialog() {
         if (dialogAddURL == null) {
             val builder = AlertDialog.Builder(this@CreateNoteActivity)
             val view = LayoutInflater.from(this)
