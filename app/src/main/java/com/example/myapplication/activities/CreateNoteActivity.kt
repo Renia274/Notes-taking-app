@@ -33,6 +33,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.example.myapplication.R
 import com.example.myapplication.database.NotesDatabase
 import com.example.myapplication.entities.Note
@@ -56,6 +57,7 @@ class CreateNoteActivity : AppCompatActivity() {
     private var textWebURL: TextView? = null
     private var layoutWebURL: LinearLayout? = null
     private var selectedNoteColor: String? = null
+    private var isImagePresent = false
     private val requestCodeStoragePermission = 1
     private val requestCodeSelectImage = 2
     private var dialogAddURL: AlertDialog? = null
@@ -66,6 +68,7 @@ class CreateNoteActivity : AppCompatActivity() {
     private var removeImage: ImageView? = null
     private lateinit var openAppSettingsLauncher: ActivityResultLauncher<Intent>
     private lateinit var pickMultipleMedia: ActivityResultLauncher<PickVisualMediaRequest>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_note)
@@ -81,6 +84,8 @@ class CreateNoteActivity : AppCompatActivity() {
         layoutWebURL = findViewById(R.id.layoutWebURL)
         textDateTime = findViewById(R.id.textDateTime)
         viewSubtitleIndicator = findViewById(R.id.viewSubtitleIndicator)
+        removeImage = findViewById(R.id.imageRemoveImage)
+
         textDateTime?.text = SimpleDateFormat(
             "EEEE, dd MMMM yyyy HH:mm a", Locale.getDefault()
         ).format(Date().time)
@@ -148,6 +153,28 @@ class CreateNoteActivity : AppCompatActivity() {
             // Launch the media picker
             pickMultipleMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         }
+
+
+        // Find the imageRemoveImage ImageView
+        val removeImage = findViewById<ImageView>(R.id.imageRemoveImage)
+
+        // Set an OnClickListener to handle image removal
+        removeImage.setOnClickListener {
+            // Hide the selectedImage ImageView
+            val selectedImage = findViewById<ImageView>(R.id.selectedImage)
+            selectedImage.visibility = GONE
+
+            // You can also clear the selectedImagePath (assuming you're storing the image path)
+            // selectedImagePath = null
+
+            // Hide the removeImage button itself
+            removeImage.visibility = GONE
+        }
+
+
+
+
+
         // Register the onBackPressedCallback here
         val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -164,54 +191,58 @@ class CreateNoteActivity : AppCompatActivity() {
             // Call the callback to handle the back button press
             callback.handleOnBackPressed()
         }
-        selectImageLauncher =
-            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == Activity.RESULT_OK) {
-                    val data = result.data
-                    if (data != null) {
-                        // Handle the selected image here
-                        val selectedImageUri = data.data
-                        if (selectedImageUri != null) {
-                            try {
-                                val imagePath = loadAndSaveImageToCache(this, selectedImageUri)
-                                val bitmap = BitmapFactory.decodeFile(imagePath)
-                                imageNote?.setImageBitmap(bitmap)
-                                imageNote?.visibility = VISIBLE
-                                removeImage?.visibility = VISIBLE
-                                selectedImagePath = imagePath
-                            } catch (e: Exception) {
-                                Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                } else if (result.resultCode == Activity.RESULT_CANCELED) {
-                    // Handle image selection cancellation here
-                    Toast.makeText(this, "Image selection cancelled", Toast.LENGTH_SHORT).show()
-                }
-            }
+
     }
 
 
+
+    // Handle image selection (when the user selects an image using the media picker)
     private fun handleSelectedMedia(uri: Uri) {
         try {
-            val inputStream = contentResolver.openInputStream(uri)
-            if (inputStream != null) {
-                // Process the input stream (e.g., decode it to a bitmap)
-                val bitmap = BitmapFactory.decodeStream(inputStream)
-                imageNote?.setImageBitmap(bitmap)
+            val imagePath = saveImageToCache(uri)
+            if (imagePath != null) {
+                // Load the saved image using Glide
+                imageNote?.let {
+                    Glide.with(this)
+                        .load(imagePath)
+                        .into(it)
+                }
                 imageNote?.visibility = VISIBLE
+
+                // Show the remove image button
                 removeImage?.visibility = VISIBLE
-                selectedImagePath = uri.toString() // Store the URI as a string
+
+                selectedImagePath = imagePath // Store the image path
+
+                // Append the image path to the inputNoteText EditText
+                val currentText = inputNoteText?.text.toString()
+                val newText = "$currentText\n$imagePath"
+                inputNoteText?.setText(newText)
             } else {
-                Toast.makeText(this, "Failed to open input stream for the selected media", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
         }
-
-        // After processing the media, you can save the note here or in any other appropriate place.
-        saveNote()
     }
+
+
+    private fun saveImageToCache(uri: Uri): String? {
+        try {
+            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
+            val fileName = "image_${System.currentTimeMillis()}.jpg"
+            val file = File(cacheDir, fileName)
+            val outputStream = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+            outputStream.flush()
+            outputStream.close()
+            return file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
 
 
 
@@ -220,30 +251,41 @@ class CreateNoteActivity : AppCompatActivity() {
         // Get the title, subtitle, and text of the note
         val noteTitle = inputNoteTitle?.text.toString().trim()
         val noteSubtitle = inputNoteSubtitle?.text.toString().trim()
-        val noteText = inputNoteText?.text.toString().trim()
+        var noteText = inputNoteText?.text.toString().trim()
+
         // Check if the note title is empty
         if (noteTitle.isEmpty()) {
             Toast.makeText(this, "Note title can't be empty!", Toast.LENGTH_SHORT).show()
             return
-        } else if (noteSubtitle.isEmpty() && noteText.isEmpty()) {
-            Toast.makeText(this, "Note can't be empty!", Toast.LENGTH_SHORT).show()
+        } else if (noteSubtitle.isEmpty() && noteText.isEmpty() && selectedImagePath.isNullOrEmpty()) {
+            Toast.makeText(this, "Note content can't be empty!", Toast.LENGTH_SHORT).show()
             return
         }
+
         // Create a new note object with the title, subtitle, text, date, and color of the note
         val note = Note().apply {
             title = noteTitle
             subtitle = noteSubtitle
             this.noteText = noteText
+
+            if (!selectedImagePath.isNullOrEmpty()) {
+                // If there's a selected image, set it as the note text
+                imagePath = selectedImagePath
+                noteText = "" // Clear the note text
+            }
+
             dateTime = textDateTime?.text?.toString()
-            this.color = selectedNoteColor
-            this.imagePath = selectedImagePath
+            color = selectedNoteColor
         }
+
         // If a web URL was added, set it as the note's web link
         if (layoutWebURL?.visibility == VISIBLE) {
             note.webLink = textWebURL?.text.toString()
         }
+
         // If the note being edited already exists, set its ID to the new note's ID
         alreadyAvailableNote?.let { note.id = it.id }
+
         lifecycleScope.launch(Dispatchers.IO) {
             NotesDatabase.getNotesDatabase(applicationContext).noteDao().insertNote(note)
             withContext(Dispatchers.Main) {
@@ -253,6 +295,7 @@ class CreateNoteActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun initMiscellaneous() {
         val layoutMiscellaneous =
             findViewById<LinearLayout>(com.example.myapplication.R.id.layoutMiscellaneous)
@@ -335,17 +378,8 @@ class CreateNoteActivity : AppCompatActivity() {
         val gradientDrawable = viewSubtitleIndicator?.background as GradientDrawable
         gradientDrawable.setColor(Color.parseColor(selectedNoteColor))
     }
-    //loads and save image to cache of the application
-    private fun loadAndSaveImageToCache(context: Context, uri: Uri?): String? {
-        val bitmap = BitmapFactory.decodeFile(getRealPathFromURI(context, uri))
-        val fileName = "image_${System.currentTimeMillis()}.jpg"
-        val file = File(context.cacheDir, fileName)
-        val outputStream = FileOutputStream(file)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-        outputStream.flush()
-        outputStream.close()
-        return file.absolutePath
-    }
+
+
     private fun getRealPathFromURI(context: Context, uri: Uri?): String? {
         var filePath = ""
         val wholeID = DocumentsContract.getDocumentId(uri)

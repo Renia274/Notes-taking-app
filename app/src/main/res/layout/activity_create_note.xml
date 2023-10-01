@@ -124,7 +124,7 @@
                 app:layout_constraintTop_toBottomOf="@id/inputNoteSubtitle"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                android:visibility="gone" />
+                android:visibility="visible" />
 
             <ImageView
                 android:id="@+id/imageRemoveImage"
@@ -140,6 +140,7 @@
                 app:layout_constraintEnd_toEndOf="@+id/selectedImage"
                 app:layout_constraintTop_toTopOf="@+id/selectedImage"
                 app:tint="@color/white" />
+
 
             <LinearLayout
                 android:id="@+id/layoutWebURL"
