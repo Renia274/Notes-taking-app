@@ -181,7 +181,7 @@ class CreateNoteActivity : AppCompatActivity() {
             // Open an image picker
             val intent = Intent(Intent.ACTION_PICK)
             intent.type = "image/*"
-            selectImageLauncher.launch(intent) // Launch the image picker using the launcher
+            selectImageLauncher.launch(intent)// Launch the image picker using the launcher
         }
 
         removeImage?.setOnClickListener {
@@ -227,13 +227,24 @@ class CreateNoteActivity : AppCompatActivity() {
 
     private fun handleSelectedMedia(uri: Uri) {
         try {
-            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
-            selectedImage.setImageBitmap(bitmap) // Display the selected image
-            selectedImage.visibility = VISIBLE // Show the selected image view
-            removeImage?.visibility = VISIBLE // Show the remove button
-            selectedImagePath = uri.toString() // Store the image URI as a string
+            val imagePath = saveImageToCache(uri)
+            if (imagePath != null) {
+                // Display the selected image
+                val bitmap = retrieveImageFromCache(imagePath)
+                if (bitmap != null) {
+                    selectedImage.setImageBitmap(bitmap)
+                    selectedImage.visibility = View.VISIBLE
+                    removeImage?.visibility = View.VISIBLE // Show the remove button
+                    selectedImagePath = imagePath
+                } else {
+                    Toast.makeText(this, "Error retrieving the saved image from cache", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Error saving the selected image to cache", Toast.LENGTH_SHORT).show()
+            }
         } catch (e: Exception) {
             Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
         }
     }
 
@@ -252,6 +263,25 @@ class CreateNoteActivity : AppCompatActivity() {
                 outputStream.flush()
                 outputStream.close()
                 return file.absolutePath
+            } else {
+                Log.e("ImageProcessing", "Bitmap is null, image decoding failed")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
+
+    private fun retrieveImageFromCache(filePath: String?): Bitmap? {
+        try {
+            if (!filePath.isNullOrEmpty()) {
+                val file = File(filePath)
+                if (file.exists()) {
+                    return BitmapFactory.decodeFile(filePath)
+                } else {
+                    Log.e("ImageProcessing", "Image file does not exist: $filePath")
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -285,7 +315,6 @@ class CreateNoteActivity : AppCompatActivity() {
             this.noteText = noteText
 
             if (!selectedImagePath.isNullOrEmpty()) {
-                // If there's a selected image, set it as the note text
                 imagePath = selectedImagePath
                 noteText = "" // Clear the note text
             }
