@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -111,19 +112,19 @@
                 app:layout_constraintTop_toTopOf="@id/inputNoteSubtitle" />
 
             <ImageView
-                android:id="@+id/imageNote"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_marginStart="12dp"
+                android:id="@+id/selectedImage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scaleType="centerInside"
                 android:layout_marginTop="15dp"
+                android:layout_marginStart="12dp"
                 android:layout_marginEnd="12dp"
                 android:layout_marginBottom="15dp"
-                android:scaleType="centerInside"
                 android:contentDescription="@string/app_name"
+                app:layout_constraintTop_toBottomOf="@id/inputNoteSubtitle"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                android:visibility="gone"
-                app:layout_constraintTop_toBottomOf="@id/inputNoteSubtitle" />
+                android:visibility="gone" />
 
             <ImageView
                 android:id="@+id/imageRemoveImage"
@@ -136,10 +137,9 @@
                 android:padding="4dp"
                 android:src="@drawable/ic_delete"
                 android:visibility="gone"
-                app:layout_constraintEnd_toEndOf="@id/imageNote"
-                app:layout_constraintTop_toTopOf="@id/imageNote"
+                app:layout_constraintEnd_toEndOf="@+id/selectedImage"
+                app:layout_constraintTop_toTopOf="@+id/selectedImage"
                 app:tint="@color/white" />
-
 
             <LinearLayout
                 android:id="@+id/layoutWebURL"
@@ -151,7 +151,7 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:visibility="gone"
-                app:layout_constraintTop_toBottomOf="@id/imageNote"
+                app:layout_constraintTop_toBottomOf="@id/selectedImage"
                 tools:ignore="UseCompoundDrawables">
 
                 <TextView
@@ -202,4 +202,3 @@
     <include layout="@layout/layout_miscellaneous" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
