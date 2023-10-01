@@ -33,7 +33,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
 import com.example.myapplication.R
 import com.example.myapplication.database.NotesDatabase
 import com.example.myapplication.entities.Note
@@ -46,6 +45,8 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+
 class CreateNoteActivity : AppCompatActivity() {
     private var inputNoteTitle: EditText? = null
     private var requestCodeTakeImage = 3
@@ -64,10 +65,11 @@ class CreateNoteActivity : AppCompatActivity() {
     private var dialogDeleteNote: AlertDialog? = null
     private var alreadyAvailableNote: Note? = null
     private var selectedImagePath: String? = null
-    private lateinit var selectImageLauncher: ActivityResultLauncher<Intent>
     private var removeImage: ImageView? = null
     private lateinit var openAppSettingsLauncher: ActivityResultLauncher<Intent>
     private lateinit var pickMultipleMedia: ActivityResultLauncher<PickVisualMediaRequest>
+    private lateinit var selectedImage: ImageView
+    private lateinit var selectImageLauncher: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,6 +87,7 @@ class CreateNoteActivity : AppCompatActivity() {
         textDateTime = findViewById(R.id.textDateTime)
         viewSubtitleIndicator = findViewById(R.id.viewSubtitleIndicator)
         removeImage = findViewById(R.id.imageRemoveImage)
+        selectedImage = findViewById(R.id.selectedImage) // Make sure this references the correct ImageView
 
         textDateTime?.text = SimpleDateFormat(
             "EEEE, dd MMMM yyyy HH:mm a", Locale.getDefault()
@@ -111,8 +114,7 @@ class CreateNoteActivity : AppCompatActivity() {
                     // Load image if not null
                     if (alreadyAvailableNote?.imagePath != null) {
                         selectedImagePath = alreadyAvailableNote?.imagePath
-                        imageNote?.setImageBitmap(BitmapFactory.decodeFile(selectedImagePath))
-                        imageNote?.visibility = VISIBLE
+                        displaySelectedImage(Uri.parse(selectedImagePath)) // Display the selected image
                         removeImage?.visibility = VISIBLE
                     }
                     // Load web URL if not null
@@ -147,6 +149,17 @@ class CreateNoteActivity : AppCompatActivity() {
                 }
             }
 
+        selectImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val imageUri = result.data?.data
+                if (imageUri != null) {
+                    val imagePath = getRealPathFromURI(this, imageUri) // Pass 'this' as the context
+                    displaySelectedImage(imageUri) // Display the selected image
+                    removeImage?.visibility = VISIBLE // Show the remove button
+                    selectedImagePath = imagePath // Store the image path
+                }
+            }
+        }
 
 
         findViewById<View>(R.id.layoutAddImage).setOnClickListener {
@@ -154,26 +167,19 @@ class CreateNoteActivity : AppCompatActivity() {
             pickMultipleMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         }
 
-
-        // Find the imageRemoveImage ImageView
-        val removeImage = findViewById<ImageView>(R.id.imageRemoveImage)
-
-        // Set an OnClickListener to handle image removal
-        removeImage.setOnClickListener {
-            // Hide the selectedImage ImageView
-            val selectedImage = findViewById<ImageView>(R.id.selectedImage)
-            selectedImage.visibility = GONE
-
-            // You can also clear the selectedImagePath (assuming you're storing the image path)
-            // selectedImagePath = null
-
-            // Hide the removeImage button itself
-            removeImage.visibility = GONE
+        selectedImage.setOnClickListener {
+            // Open an image picker
+            val intent = Intent(Intent.ACTION_PICK)
+            intent.type = "image/*"
+            selectImageLauncher.launch(intent) // Launch the image picker using the launcher
         }
 
-
-
-
+        removeImage?.setOnClickListener {
+            // Remove the inserted image
+            selectedImage.setImageResource(android.R.color.transparent) // Clear the image
+            selectedImagePath = null // Clear the image path
+            removeImage?.visibility = GONE // Hide the remove button
+        }
 
         // Register the onBackPressedCallback here
         val callback = object : OnBackPressedCallback(true) {
@@ -191,40 +197,37 @@ class CreateNoteActivity : AppCompatActivity() {
             // Call the callback to handle the back button press
             callback.handleOnBackPressed()
         }
+    }
 
+
+    private fun displaySelectedImage(imageUri: Uri) {
+        try {
+            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(imageUri))
+            selectedImage.setImageBitmap(bitmap)
+            selectedImage.visibility = VISIBLE
+            removeImage?.visibility = VISIBLE // Show the remove button
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
 
 
     // Handle image selection (when the user selects an image using the media picker)
+
     private fun handleSelectedMedia(uri: Uri) {
         try {
-            val imagePath = saveImageToCache(uri)
-            if (imagePath != null) {
-                // Load the saved image using Glide
-                imageNote?.let {
-                    Glide.with(this)
-                        .load(imagePath)
-                        .into(it)
-                }
-                imageNote?.visibility = VISIBLE
-
-                // Show the remove image button
-                removeImage?.visibility = VISIBLE
-
-                selectedImagePath = imagePath // Store the image path
-
-                // Append the image path to the inputNoteText EditText
-                val currentText = inputNoteText?.text.toString()
-                val newText = "$currentText\n$imagePath"
-                inputNoteText?.setText(newText)
-            } else {
-                Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show()
-            }
+            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
+            selectedImage.setImageBitmap(bitmap) // Display the selected image
+            selectedImage.visibility = VISIBLE // Show the selected image view
+            removeImage?.visibility = VISIBLE // Show the remove button
+            selectedImagePath = uri.toString() // Store the image URI as a string
         } catch (e: Exception) {
             Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
+
+
 
 
     private fun saveImageToCache(uri: Uri): String? {
@@ -434,6 +437,16 @@ class CreateNoteActivity : AppCompatActivity() {
         }
         return chooserIntent
     }
+
+
+
+
+
+
+
+
+
+
     private fun showAddURLDialog() {
         if (dialogAddURL == null) {
             val builder = AlertDialog.Builder(this@CreateNoteActivity)

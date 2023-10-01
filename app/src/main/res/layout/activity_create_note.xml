@@ -9,6 +9,7 @@
     tools:context=".MainActivity">
 
     <ScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginBottom="40dp"
@@ -16,6 +17,7 @@
         android:paddingBottom="10dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/activeConstraintLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:animateLayoutChanges="true">
@@ -113,7 +115,7 @@
 
             <ImageView
                 android:id="@+id/selectedImage"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:scaleType="centerInside"
                 android:layout_marginTop="15dp"
@@ -126,6 +128,9 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 android:visibility="visible" />
 
+
+            <!-- ImageView for removing the image -->
+            <!-- ImageView for removing the image -->
             <ImageView
                 android:id="@+id/imageRemoveImage"
                 android:layout_width="25dp"
@@ -140,6 +145,7 @@
                 app:layout_constraintEnd_toEndOf="@+id/selectedImage"
                 app:layout_constraintTop_toTopOf="@+id/selectedImage"
                 app:tint="@color/white" />
+
 
 
             <LinearLayout
