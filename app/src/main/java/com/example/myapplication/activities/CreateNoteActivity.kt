@@ -71,6 +71,9 @@ class CreateNoteActivity : AppCompatActivity() {
     private lateinit var selectedImage: ImageView
     private lateinit var selectImageLauncher: ActivityResultLauncher<Intent>
 
+
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_note)
@@ -149,14 +152,21 @@ class CreateNoteActivity : AppCompatActivity() {
                 }
             }
 
+        // Modify your selectImageLauncher to save the selected image to cache
         selectImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val imageUri = result.data?.data
                 if (imageUri != null) {
-                    val imagePath = getRealPathFromURI(this, imageUri) // Pass 'this' as the context
-                    displaySelectedImage(imageUri) // Display the selected image
-                    removeImage?.visibility = VISIBLE // Show the remove button
-                    selectedImagePath = imagePath // Store the image path
+                    // Save the image to cache
+                    val imagePath = saveImageToCache(imageUri)
+                    if (imagePath != null) {
+                        // Display the selected image
+                        displaySelectedImage(Uri.parse(imagePath))
+                        removeImage?.visibility = VISIBLE
+                        selectedImagePath = imagePath
+                    } else {
+                        Toast.makeText(this, "Error saving the selected image to cache", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -228,18 +238,21 @@ class CreateNoteActivity : AppCompatActivity() {
     }
 
 
-
-
     private fun saveImageToCache(uri: Uri): String? {
         try {
-            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
-            val fileName = "image_${System.currentTimeMillis()}.jpg"
-            val file = File(cacheDir, fileName)
-            val outputStream = FileOutputStream(file)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-            outputStream.flush()
-            outputStream.close()
-            return file.absolutePath
+            val inputStream = contentResolver.openInputStream(uri)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+
+            if (bitmap != null) {
+                val fileName = "image_${System.currentTimeMillis()}.jpg"
+                val file = File(cacheDir, fileName)
+                val outputStream = FileOutputStream(file)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+                outputStream.flush()
+                outputStream.close()
+                return file.absolutePath
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
