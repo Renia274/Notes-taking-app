@@ -5,7 +5,6 @@ package com.example.myapplication.activities
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -13,7 +12,6 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
-import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Patterns
@@ -72,8 +70,6 @@ class CreateNoteActivity : AppCompatActivity() {
     private lateinit var selectImageLauncher: ActivityResultLauncher<Intent>
 
 
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_note)
@@ -90,7 +86,8 @@ class CreateNoteActivity : AppCompatActivity() {
         textDateTime = findViewById(R.id.textDateTime)
         viewSubtitleIndicator = findViewById(R.id.viewSubtitleIndicator)
         removeImage = findViewById(R.id.imageRemoveImage)
-        selectedImage = findViewById(R.id.selectedImage) // Make sure this references the correct ImageView
+        selectedImage =
+            findViewById(R.id.selectedImage) // Make sure this references the correct ImageView
 
         textDateTime?.text = SimpleDateFormat(
             "EEEE, dd MMMM yyyy HH:mm a", Locale.getDefault()
@@ -145,7 +142,11 @@ class CreateNoteActivity : AppCompatActivity() {
                         handleSelectedMedia(selectedUri)
                     } else {
                         // Multiple items selected, inform the user to select only one
-                        Toast.makeText(this@CreateNoteActivity, "Select only one media item", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@CreateNoteActivity,
+                            "Select only one media item",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } else {
                     Log.d("PhotoPicker", "No media selected")
@@ -153,23 +154,28 @@ class CreateNoteActivity : AppCompatActivity() {
             }
 
         // Modify your selectImageLauncher to save the selected image to cache
-        selectImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val imageUri = result.data?.data
-                if (imageUri != null) {
-                    // Save the image to cache
-                    val imagePath = saveImageToCache(imageUri)
-                    if (imagePath != null) {
-                        // Display the selected image
-                        displaySelectedImage(Uri.parse(imagePath))
-                        removeImage?.visibility = VISIBLE
-                        selectedImagePath = imagePath
-                    } else {
-                        Toast.makeText(this, "Error saving the selected image to cache", Toast.LENGTH_SHORT).show()
+        selectImageLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val imageUri = result.data?.data
+                    if (imageUri != null) {
+                        // Save the image to cache
+                        val imagePath = saveImageToCache(imageUri)
+                        if (imagePath != null) {
+                            // Display the selected image
+                            displaySelectedImage(Uri.parse(imagePath))
+                            removeImage?.visibility = VISIBLE
+                            selectedImagePath = imagePath
+                        } else {
+                            Toast.makeText(
+                                this,
+                                "Error saving the selected image to cache",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 }
             }
-        }
 
 
         findViewById<View>(R.id.layoutAddImage).setOnClickListener {
@@ -210,16 +216,6 @@ class CreateNoteActivity : AppCompatActivity() {
     }
 
 
-    private fun displaySelectedImage(imageUri: Uri) {
-        try {
-            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(imageUri))
-            selectedImage.setImageBitmap(bitmap)
-            selectedImage.visibility = VISIBLE
-            removeImage?.visibility = VISIBLE // Show the remove button
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
 
 
 
@@ -227,6 +223,7 @@ class CreateNoteActivity : AppCompatActivity() {
 
     private fun handleSelectedMedia(uri: Uri) {
         try {
+            // Save the image to cache
             val imagePath = saveImageToCache(uri)
             if (imagePath != null) {
                 // Display the selected image
@@ -248,7 +245,7 @@ class CreateNoteActivity : AppCompatActivity() {
         }
     }
 
-
+    // Save the selected image to cache
     private fun saveImageToCache(uri: Uri): String? {
         try {
             val inputStream = contentResolver.openInputStream(uri)
@@ -272,7 +269,7 @@ class CreateNoteActivity : AppCompatActivity() {
         return null
     }
 
-
+    // Retrieve the image from cache
     private fun retrieveImageFromCache(filePath: String?): Bitmap? {
         try {
             if (!filePath.isNullOrEmpty()) {
@@ -288,7 +285,6 @@ class CreateNoteActivity : AppCompatActivity() {
         }
         return null
     }
-
 
 
 
@@ -419,30 +415,13 @@ class CreateNoteActivity : AppCompatActivity() {
             showDeleteNoteDialog()
         }
     }
+
     private fun setSubtitleIndicatorColor() {
         val gradientDrawable = viewSubtitleIndicator?.background as GradientDrawable
         gradientDrawable.setColor(Color.parseColor(selectedNoteColor))
     }
 
 
-    private fun getRealPathFromURI(context: Context, uri: Uri?): String? {
-        var filePath = ""
-        val wholeID = DocumentsContract.getDocumentId(uri)
-        // Split at colon, use second item in the array
-        val id = wholeID.split(":").toTypedArray()[1]
-        val column = arrayOf(MediaStore.Images.Media.DATA)
-        // where id is equal to
-        val sel = MediaStore.Images.Media._ID + "=?"
-        val cursor: Cursor =
-            context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                column, sel, arrayOf(id), null) ?: return null
-        val columnIndex: Int = cursor.getColumnIndex(column[0])
-        if (cursor.moveToFirst()) {
-            filePath = cursor.getString(columnIndex)
-        }
-        cursor.close()
-        return filePath
-    }
     private fun createGetContentIntent(
         context: Context,
         type: String = "*/*",
@@ -478,6 +457,53 @@ class CreateNoteActivity : AppCompatActivity() {
             chooserIntent = Intent.createChooser(intent, title)
         }
         return chooserIntent
+    }
+
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == requestCodeSelectImage && resultCode == Activity.RESULT_OK) {
+            val imageUri = data?.data
+            if (imageUri != null) {
+                // You can display the selected image in your ImageView
+                displaySelectedImage(imageUri)
+            } else {
+                // Handle the case where 'imageUri' is null (no image selected)
+                Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+
+    private fun displaySelectedImage(imageUri: Uri) {
+        try {
+            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(imageUri))
+            selectedImage.setImageBitmap(bitmap)
+            selectedImage.visibility = View.VISIBLE
+            removeImage?.visibility = View.VISIBLE // Show the remove button
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
+        }
+    }
+
+
+
+    private fun getRealPathFromURI(context: Context, uri: Uri): String? {
+        var filePath: String? = null
+        try {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val columnIndex = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                    filePath = it.getString(columnIndex)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return filePath
     }
 
 
