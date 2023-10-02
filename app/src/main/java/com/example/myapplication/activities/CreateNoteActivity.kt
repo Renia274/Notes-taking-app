@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
 import android.util.Patterns
 import android.view.LayoutInflater
@@ -227,6 +228,25 @@ class CreateNoteActivity : AppCompatActivity() {
 
     private fun handleSelectedMedia(uri: Uri) {
         try {
+            // Get the original file name from the URI
+            val originalFileName = getOriginalFileNameFromUri(uri)
+
+            // Define the directory path
+            val directoryPath = "/data/0/user/com.example.myapplication/"
+
+            // Combine the directory path and original file name to create the full file path
+            val filePath = "$directoryPath$originalFileName"
+
+            // Create or obtain the file
+            val file = File(filePath)
+
+            // Ensure the file exists
+            if (!file.exists()) {
+                // Handle the case where the file doesn't exist
+                // You can add code here to create the file or handle the situation as needed
+                // For example, you can create the file using FileOutputStream and save an image to it.
+            }
+
             // Save the image to cache
             val imagePathCache = saveImageToCache(uri)
             if (imagePathCache != null) {
@@ -241,8 +261,7 @@ class CreateNoteActivity : AppCompatActivity() {
                     // Check for write permission to external storage
                     if (hasWritePermission()) {
                         // Save the image to external storage
-                        val fileName = "image_${System.currentTimeMillis()}.jpg"
-                        val imagePathExternal = saveImageToExternalStorage(bitmap)
+                        val imagePathExternal = saveImageToExternalStorage(bitmap,file)
                         if (imagePathExternal != null) {
                             Toast.makeText(this, "Image saved to external storage", Toast.LENGTH_SHORT).show()
                         } else {
@@ -252,7 +271,6 @@ class CreateNoteActivity : AppCompatActivity() {
                         // Request write permission from the user
                         requestWritePermission()
                     }
-
                 } else {
                     Toast.makeText(
                         this,
@@ -270,6 +288,24 @@ class CreateNoteActivity : AppCompatActivity() {
             e.printStackTrace()
         }
     }
+
+
+    // Function to get the original file name from the URI
+    private fun getOriginalFileNameFromUri(uri: Uri): String {
+        val cursor = contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            val displayNameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (displayNameIndex != -1 && it.moveToFirst()) {
+                val displayName = it.getString(displayNameIndex)
+                if (!displayName.isNullOrBlank()) {
+                    return displayName
+                }
+            }
+        }
+        // If unable to retrieve the original file name, generate a fallback name
+        return "fallback_image.jpg"
+    }
+
 
     private fun hasWritePermission(): Boolean {
         val permission = android.Manifest.permission.WRITE_EXTERNAL_STORAGE
@@ -303,7 +339,7 @@ class CreateNoteActivity : AppCompatActivity() {
             inputStream?.close()
 
             if (bitmap != null) {
-                val fileName = "image_${System.currentTimeMillis()}.jpg"
+                val fileName = "IMG_${System.currentTimeMillis()}.jpg"
                 val file = File(cacheDir, fileName)
                 val outputStream = FileOutputStream(file)
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
@@ -517,8 +553,9 @@ class CreateNoteActivity : AppCompatActivity() {
         if (requestCode == requestCodeSelectImage && resultCode == Activity.RESULT_OK) {
             val imageUri = data?.data
             if (imageUri != null) {
-                // You can display the selected image in your ImageView
-                displaySelectedImage(imageUri)
+                // This is where you can include the code to create or obtain the file
+                // with a dynamic name and image type based on the selected imageUri
+                handleSelectedMedia(imageUri)
             } else {
                 // Handle the case where 'imageUri' is null (no image selected)
                 Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show()
@@ -526,30 +563,34 @@ class CreateNoteActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveImageToExternalStorage(bitmap: Bitmap): String? {
-        val rootDir = Environment.getExternalStorageDirectory()
-        val appName = getString(R.string.app_name)
-        val imageDir = File(rootDir, appName)
 
-        if (!imageDir.exists()) {
-            imageDir.mkdirs()
+    // Function to get the path to your app's private external storage directory
+    private fun getAppExternalDirPath(): String {
+        val appName = getString(R.string.app_name)
+        val externalDir = File(Environment.getExternalStorageDirectory(), appName)
+
+        if (!externalDir.exists()) {
+            externalDir.mkdirs()
         }
 
-        val fileName = "image_${System.currentTimeMillis()}.jpg"
-        val imageFile = File(imageDir, fileName)
+        return externalDir.absolutePath
+    }
 
+    // Save the selected image to external storage
+    private fun saveImageToExternalStorage(bitmap: Bitmap, file: File): String? {
         try {
-            val outputStream = FileOutputStream(imageFile)
+            val outputStream = FileOutputStream(file)
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
             outputStream.flush()
             outputStream.close()
-            return imageFile.absolutePath
+            return file.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
         return null
     }
+
 
 
 
@@ -589,13 +630,6 @@ class CreateNoteActivity : AppCompatActivity() {
         }
         return filePath
     }
-
-
-
-
-
-
-
 
 
 
