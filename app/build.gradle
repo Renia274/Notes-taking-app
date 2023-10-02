@@ -4,8 +4,8 @@ plugins {
 }
 
 android {
+    compileSdkVersion 34 // Add this line to specify the compileSdkVersion
     namespace 'com.example.myapplication'
-    compileSdk 34
 
     defaultConfig {
         applicationId "com.example.myapplication"
@@ -31,6 +31,7 @@ android {
         jvmTarget = '1.8'
     }
 }
+
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'

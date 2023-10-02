@@ -5,6 +5,7 @@ package com.example.myapplication.activities
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -12,6 +13,7 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Patterns
@@ -30,6 +32,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.myapplication.R
 import com.example.myapplication.database.NotesDatabase
@@ -224,31 +228,77 @@ class CreateNoteActivity : AppCompatActivity() {
     private fun handleSelectedMedia(uri: Uri) {
         try {
             // Save the image to cache
-            val imagePath = saveImageToCache(uri)
-            if (imagePath != null) {
-                // Display the selected image
-                val bitmap = retrieveImageFromCache(imagePath)
+            val imagePathCache = saveImageToCache(uri)
+            if (imagePathCache != null) {
+                // Display the selected image from cache
+                val bitmap = retrieveImageFromCache(imagePathCache)
                 if (bitmap != null) {
                     selectedImage.setImageBitmap(bitmap)
-                    selectedImage.visibility = View.VISIBLE
-                    removeImage?.visibility = View.VISIBLE // Show the remove button
-                    selectedImagePath = imagePath
+                    selectedImage.visibility = VISIBLE
+                    removeImage?.visibility = VISIBLE // Show the remove button
+                    selectedImagePath = imagePathCache
+
+                    // Check for write permission to external storage
+                    if (hasWritePermission()) {
+                        // Save the image to external storage
+                        val fileName = "image_${System.currentTimeMillis()}.jpg"
+                        val imagePathExternal = saveImageToExternalStorage(bitmap)
+                        if (imagePathExternal != null) {
+                            Toast.makeText(this, "Image saved to external storage", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Failed to save image to external storage", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        // Request write permission from the user
+                        requestWritePermission()
+                    }
+
                 } else {
-                    Toast.makeText(this, "Error retrieving the saved image from cache", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        "Error retrieving the saved image from cache",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } else {
-                Toast.makeText(this, "Error saving the selected image to cache", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Error saving the selected image to cache", Toast.LENGTH_SHORT)
+                    .show()
             }
         } catch (e: Exception) {
-            Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT)
+                .show()
             e.printStackTrace()
         }
     }
 
+    private fun hasWritePermission(): Boolean {
+        val permission = android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestWritePermission() {
+        val permission = android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ActivityCompat.requestPermissions(this, arrayOf(permission), requestCodeStoragePermission)
+    }
+
+
+
+    // Function to get the path to your app's private files directory
+    private fun getAppFilesDirPath(): String {
+        return filesDir.absolutePath
+    }
+
+    // Function to get the path to your app's private cache directory
+    private fun getAppCacheDirPath(): String {
+        return cacheDir.absolutePath
+    }
+
+
+
     // Save the selected image to cache
-    private fun saveImageToCache(uri: Uri): String? {
+    private fun saveImageToCache(imageUri: Uri): String? {
         try {
-            val inputStream = contentResolver.openInputStream(uri)
+            val inputStream = contentResolver.openInputStream(imageUri)
             val bitmap = BitmapFactory.decodeStream(inputStream)
             inputStream?.close()
 
@@ -285,6 +335,7 @@ class CreateNoteActivity : AppCompatActivity() {
         }
         return null
     }
+
 
 
 
@@ -475,13 +526,46 @@ class CreateNoteActivity : AppCompatActivity() {
         }
     }
 
+    private fun saveImageToExternalStorage(bitmap: Bitmap): String? {
+        val rootDir = Environment.getExternalStorageDirectory()
+        val appName = getString(R.string.app_name)
+        val imageDir = File(rootDir, appName)
+
+        if (!imageDir.exists()) {
+            imageDir.mkdirs()
+        }
+
+        val fileName = "image_${System.currentTimeMillis()}.jpg"
+        val imageFile = File(imageDir, fileName)
+
+        try {
+            val outputStream = FileOutputStream(imageFile)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+            outputStream.flush()
+            outputStream.close()
+            return imageFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return null
+    }
+
+
+
 
     private fun displaySelectedImage(imageUri: Uri) {
         try {
-            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(imageUri))
-            selectedImage.setImageBitmap(bitmap)
-            selectedImage.visibility = View.VISIBLE
-            removeImage?.visibility = View.VISIBLE // Show the remove button
+            // Create a bitmap from the selected image URI
+            val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
+
+            if (bitmap != null) {
+                selectedImage.setImageBitmap(bitmap)
+                selectedImage.visibility = VISIBLE
+                removeImage?.visibility = VISIBLE // Show the remove button
+            } else {
+                Toast.makeText(this, "Failed to load the selected image", Toast.LENGTH_SHORT).show()
+            }
         } catch (e: Exception) {
             Toast.makeText(this, "Error processing selected media: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
