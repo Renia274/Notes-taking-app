@@ -1,7 +1,7 @@
 # Notes-taking-app
 Notes-taking-app
 
-Notes-taking-app is a simple web application that allows users to create, edit, and delete notes with a clean and user-friendly interface. 
+Notes-taking-app is a simple android application that allows users to create, edit, and delete notes with a clean and user-friendly interface. 
 
 Table of Contents
 
