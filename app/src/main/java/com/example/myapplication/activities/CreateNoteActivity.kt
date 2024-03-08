@@ -240,13 +240,7 @@ class CreateNoteActivity : AppCompatActivity() {
             // Create or obtain the file
             val file = File(filePath)
 
-            // Ensure the file exists
-            if (!file.exists()) {
-                // Handle the case where the file doesn't exist
-                // You can add code here to create the file or handle the situation as needed
-                // For example, you can create the file using FileOutputStream and save an image to it.
-            }
-
+           
             // Save the image to cache
             val imagePathCache = saveImageToCache(uri)
             if (imagePathCache != null) {
