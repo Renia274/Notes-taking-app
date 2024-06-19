@@ -20,7 +20,6 @@ Features
 
 Notes-taking-app provides the following features:
 
-    User authentication - users can create an account, log in, and log out.
     Create new notes - users can create new notes with a title and a body.
     Edit notes - users can edit the title and body of the notes they created.
     Delete notes - users can delete the notes they created.
