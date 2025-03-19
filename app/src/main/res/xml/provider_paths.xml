@@ -1,0 +1,15 @@
+<paths>
+    <!-- External storage paths -->
+    <external-path name="external_files" path="Android/test/com.example.application/"/>
+    <external-path name="all_external" path="."/>
+
+    <!-- App-specific external storage -->
+    <external-files-path name="external_app_files" path="."/>
+
+    <!-- Cache paths -->
+    <external-cache-path name="cache" path="."/>
+    <cache-path name="internal_cache" path="."/>
+
+    <!-- App internal files -->
+    <files-path name="internal_files" path="."/>
+</paths>

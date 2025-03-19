@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="my__notes" />
+    <string name="input_search_hint" />
+    <string name="hint_text">hint_text</string>
+    <string name="insert_note">Insert note</string>
+    <string name="give_text_hint">Give text hint</string>
+    <string name="search_hint">search hint…</string>
+    <string name="type">Type…</string>
+    <string name="title">Title</string>
+    <string name="miscellaneous">Miscellaneous</string>
+    <string name="pick_a_color">pick a color</string>
+    <string name="pick_color" />
+    <string name="add_image" />
+    <string name="add_url_title" />
+    <string name="input_url" />
+    <string name="text_add" />
+    <string name="add_a_url_please">add a url please</string>
+    <string name="give_a_url">give a url</string>
+    <string name="url">URL</string>
+    <string name="add_url__text">add_url_text</string>
+    <string name="delete__note">Delete Note</string>
+    <string name="delete_note_title">delete_note_title</string>
+    <string name="delete_note_message">delete_note_message</string>
+    <string name="delete_note_text">delete_note_text</string>
+    <string name="text_cancel" />
+    <string name="delete_text">delete text</string>
+    <string name="delete_the_note">delete the note</string>
+    <string name="are_you_sure_you_want_to_delete_the_note">are you sure you want to delete the note?</string>
+    <string name="cancel" tools:ignore="ButtonCase">CANCEL</string>
+    <string name="delete">DELETE</string>
+    <string name="add">Add</string>
+    <string name="no">No</string>
+    <string name="delete_note" />
+</resources>
